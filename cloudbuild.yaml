@@ -1,0 +1,11 @@
+steps:
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["build","-f","Dockerfile.hunyuan","-t","$IMAGE","."]
+  - name: "gcr.io/cloud-builders/docker"
+    args: ["push","$IMAGE"]
+  - name: "gcr.io/cloud-builders/gke-deploy"
+    args:
+      - "apply"
+      - "--filename=infra/helm/hunyuan"
+      - "--cluster=storyloop-inference"
+      - "--location=us-central1"

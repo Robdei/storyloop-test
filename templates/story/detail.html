@@ -1,0 +1,157 @@
+<!--{% extends "base.html" %}
+{% block content %}
+<h2>{{ story.title }}</h2>
+<div style="display:flex;gap:2rem;">
+  <aside style="flex:1;max-width:200px;">
+    <h3>Scenes</h3>
+    <ol>
+       {% for sc in scenes %}
+        <li class="flex items-center gap-2">
+          <span>{{ sc.prompt[:36] }}…</span>
+          <span class="text-xs px-2 py-0.5 rounded-full bg-white/20">
+            {{ sc.status }}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+  </aside>
+  <main style="flex:3;">
+    {% if scenes %}
+      <h3>Last Prompt</h3>
+      <p>{{ scenes[-1].prompt }}</p>
+    {% else %}
+      <p>No scenes yet. Be the first!</p>
+    {% endif %}
+
+    <hr>
+    <h3>Add your scene</h3>
+    <form method="post" novalidate class="space-y-4">
+      {{ form.hidden_tag() }}
+      <div>{{ form.prompt(class="w-full px-3 py-2 rounded-md bg-white/20 focus:bg-white focus:text-gray-900") }}</div>
+      <div>{{ form.engine(class="px-3 py-2 rounded-md bg-white/20 focus:bg-white focus:text-gray-900") }}</div>
+      {{ form.submit(class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold") }}
+    </form>
+  </main>
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js" integrity="sha384-HoA6jT+eVJwg1sEHqI7aPPGjBJOCa/MEGLjm+rXhN3kLBXjg5eQof8I4eAbOeTdI" crossorigin="anonymous"></script>
+<script>
+  const socket = io();
+  socket.emit('join', {story_id: '{{ story.id }}'});
+  const refresh = () => window.location.reload();
+  ['scene_ready','scene_error'].forEach(ev => socket.on(ev, data => {
+    if (data.story_id === '{{ story.id }}') refresh();
+  }));
+</script>
+{% endblock %} -->
+
+
+{# templates/story/detail.html #}
+{% extends "base.html" %}
+{% block title %}{{ story.title }} · StoryLoop{% endblock %}
+
+{% block content %}
+<h2 class="text-3xl font-bold mb-6">{{ story.title }}</h2>
+
+<!-- Current-turn banner -->
+<h3 class="mb-6 text-lg">
+  Current turn:
+  <span class="inline-block px-3 py-1 rounded-full bg-amber-500 text-sm font-semibold">
+    {{ current_player.display_name }}
+  </span>
+</h3>
+
+<div class="grid md:grid-cols-4 gap-8">
+  <!-- ───────────── Scene timeline (left) ───────────── -->
+  <aside class="md:col-span-1 space-y-4">
+    <h4 class="font-semibold text-indigo-200">Scenes</h4>
+
+    <ol class="space-y-3">
+      {% for sc in scenes %}
+        <li class="flex items-start gap-2 text-sm">
+          <span class="shrink-0 font-mono text-indigo-300">{{ loop.index }}.</span>
+          <span class="flex-1">{{ sc.prompt[:48] }}{% if sc.prompt|length > 48 %}…{% endif %}</span>
+
+          <!-- fork button -->
+          <a href="{{ url_for('story.fork_story', story_id=story.id, scene_id=sc.id) }}"
+             class="text-xs underline text-sky-200 hover:text-sky-100 shrink-0">
+            Fork
+          </a>
+
+          <!-- status pill -->
+          <span class="shrink-0 text-xs px-2 py-0.5 rounded-full bg-white/20">
+            {{ sc.status }}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+  </aside>
+
+  <!-- ───────────── Main panel (right) ───────────── -->
+  <main class="md:col-span-3 space-y-8">
+    {% if scenes %}
+      {# Show latest scene’s video if available #}
+      {% set last = scenes[-1] %}
+      <div class="space-y-3">
+        <h4 class="font-semibold text-indigo-200">Latest scene</h4>
+        {% if last.video_url %}
+          <video
+            src="{{ last.video_url }}"
+            controls
+            preload="metadata"
+            class="rounded-lg shadow-lg w-full max-h-96 bg-black/40">
+          </video>
+        {% else %}
+          <div class="p-6 rounded-lg bg-black/40">
+            <p class="italic text-sm text-slate-300">
+              Video is {{ last.status }}…
+            </p>
+          </div>
+        {% endif %}
+        <p class="text-slate-200 mt-2"><strong>Prompt:</strong> {{ last.prompt }}</p>
+      </div>
+    {% endif %}
+
+    <!-- New-scene form (only for current player) -->
+    {% if current_user == current_player %}
+      <hr class="border-indigo-400/30">
+
+      <h4 class="font-semibold text-indigo-200">Add your scene</h4>
+      <form method="post" novalidate class="space-y-4">
+        {{ form.hidden_tag() }}
+
+        <div>
+          {{ form.prompt.label(class="block text-sm font-medium mb-1") }}
+          {{ form.prompt(class="w-full px-3 py-2 rounded-md bg-white/20 focus:bg-white focus:text-gray-900 outline-none") }}
+        </div>
+
+        <div>
+          {{ form.engine.label(class="block text-sm font-medium mb-1") }}
+          {{ form.engine(class="w-full px-3 py-2 rounded-md bg-white/20 focus:bg-white focus:text-gray-900 outline-none") }}
+        </div>
+
+        {{ form.submit(class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold") }}
+      </form>
+    {% else %}
+      <p class="italic text-slate-200">
+        Waiting for <strong>{{ current_player.display_name }}</strong> to add the next prompt…
+      </p>
+    {% endif %}
+  </main>
+</div>
+
+<!-- Socket.IO live-refresh -->
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"
+        integrity="sha384-HoA6jT+eVJwg1sEHqI7aPPGjBJOCa/MEGLjm+rXhN3kLBXjg5eQof8I4eAbOeTdI"
+        crossorigin="anonymous"></script>
+<script>
+  const socket = io();
+  socket.emit('join', {story_id: '{{ story.id }}'});
+
+  const refreshIfMatch = (data) =>
+    data.story_id === '{{ story.id }}' && window.location.reload();
+
+  ['scene_ready','scene_error','scene_queued'].forEach(ev =>
+    socket.on(ev, refreshIfMatch));
+</script>
+{% endblock %}

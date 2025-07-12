@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Create a new Story</h2>
+<form method="post" novalidate>
+  {{ form.hidden_tag() }}
+  <div>{{ form.title.label }}<br>{{ form.title(size=40) }}</div>
+  {{ form.submit() }}
+</form>
+{% endblock %}

@@ -1,0 +1,86 @@
+{# templates/base.html #}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}StoryLoop{% endblock %}</title>
+
+  <!-- Tailwind CSS (JIT CDN) -->
+  <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
+
+  <!-- Google Font & Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+  <script src="https://kit.fontawesome.com/a2c5f4e6f7.js" crossorigin="anonymous"></script>
+
+  <style>
+    html { font-family: 'Inter', system-ui, sans-serif; }
+    /* subtle animated background blobs */
+    .blob::before, .blob::after{
+      content:""; position:absolute; border-radius:50%; filter:blur(90px); opacity:.7;
+      animation: float 20s ease-in-out infinite;
+    }
+    .blob::before{ width:480px; height:480px; background:#6366f1; left:-240px; top:-160px;}
+    .blob::after { width:380px; height:380px; background:#ec4899; right:-190px; bottom:-120px; animation-delay:5s;}
+    @keyframes float{ 0%,100%{transform:translateY(0)}50%{transform:translateY(-40px)} }
+  </style>
+
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="min-h-screen flex flex-col bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 text-white relative overflow-x-hidden">
+
+  <!-- animated background blobs -->
+  <div class="blob pointer-events-none"></div>
+
+  <!-- ──────────────  NavBar  ────────────── -->
+  <nav class="bg-indigo-700/40 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-14">
+      <a href="{{ url_for('story.dashboard') if current_user.is_authenticated else url_for('auth.login') }}" class="flex items-center gap-1 text-lg font-semibold">
+        <i class="fa-solid fa-film"></i> StoryLoop
+      </a>
+      <div class="hidden md:flex items-center gap-8 text-sm font-medium">
+        {% if current_user.is_authenticated %}
+          <a href="{{ url_for('story.dashboard') }}" class="hover:text-indigo-100 transition">Home</a>
+          <a href="{{ url_for('story.create_story') }}" class="hover:text-indigo-100 transition">Create Story</a>
+          <form action="{{ url_for('auth.logout') }}" method="post">
+            {{ csrf_token() }}
+            <button class="hover:text-indigo-100 transition" type="submit">Logout</button>
+          </form>
+        {% else %}
+          <a href="{{ url_for('auth.login') }}" class="hover:text-indigo-100 transition">Log In</a>
+          <a href="{{ url_for('auth.register') }}" class="hover:text-indigo-100 transition">Sign Up</a>
+        {% endif %}
+      </div>
+    </div>
+  </nav>
+
+  <!-- ──────────────  Flash Messages  ────────────── -->
+  <div class="max-w-3xl mx-auto mt-4 w-full px-4">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="space-y-2">
+          {% for category, message in messages %}
+            {% set theme = {
+              'success':'green','info':'blue','warning':'amber','danger':'red'
+            }[category if category in ['success','info','warning','danger'] else 'slate'] %}
+            <div class="rounded-lg p-3 bg-{{ theme }}-600/80">{{ message }}</div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  </div>
+
+  <!-- ──────────────  Main Content  ────────────── -->
+  <main class="flex-1 flex items-start justify-center">
+    <div class="w-full max-w-7xl px-4 py-10">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <!-- ──────────────  Footer  ────────────── -->
+  <footer class="text-center text-sm py-6 bg-indigo-800/40 backdrop-blur-md">
+    Made with 💜 &nbsp;|&nbsp; © {{ config.SITE_COPYRIGHT_YEAR if config and config.SITE_COPYRIGHT_YEAR else 2025 }}
+  </footer>
+
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>
