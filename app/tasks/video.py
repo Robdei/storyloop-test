@@ -1,74 +1,66 @@
-"""Background task that calls Google Veo 3, uploads MP4 to GCS, updates DB, and notifies clients."""
-import base64
-import os
+# app/tasks/video.py – Veo 2 (Gen AI SDK)
+
+import os, time, base64
 from tempfile import NamedTemporaryFile
+from google import genai
+from google.genai import types
+from google.cloud import storage
 
-from google.cloud import aiplatform, storage
-from google.cloud.aiplatform import generativemodels as gm
-
-from sqlalchemy import select
-from sqlalchemy.orm import Session
-
+from ..cluster import mark_prompt
 from ..celery_app import celery_app
 from ..extensions import db, socketio
 from ..models import Scene
 
-aiplatform.init(project=os.getenv("GCP_PROJECT"), location="us-central1")
-VIDEO_BUCKET = os.getenv("GCS_BUCKET", "storyloop-render")
+VEO_MODEL = os.getenv("VEO_MODEL_ID", "veo-2.0-generate-001")
+POLL_SEC   = int(os.getenv("VEO_POLL_SEC", "20"))
+BUCKET     = os.getenv("GCS_BUCKET", "storyloop-render")
 
-# Load once per worker process
-VIDEO_MODEL = gm.VideoGenerationModel.from_pretrained("google/veo-3.0-generate-preview")
-GCS_CLIENT = storage.Client()
-
+client  = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+gcs     = storage.Client()
 
 @celery_app.task(name="tasks.generate_scene")
-def generate_scene(scene_id: int) -> None:  # noqa: D401
-    """Generate video for a scene and push update events."""
-    # Mark scene as rendering
+def generate_scene(scene_id: int):
     with db.session.begin():
         scene: Scene = db.session.get(Scene, scene_id)
         if not scene:
             return
         scene.status = "rendering"
 
-    try:
-        response = VIDEO_MODEL.predict(
-            prompt=scene.prompt,
-            duration_seconds=scene.duration_secs,
-            style_preset=scene.style or "cinematic",
-            generate_audio=False,
-        )
+    mark_prompt() 
 
-        # Decode first video (base64) → temp file
-        raw = base64.b64decode(response.videos[0].bytes_base64)
-        with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-            tmp.write(raw)
-            tmp_path = tmp.name
+    # 1) Submit the job
+    op = client.models.generate_videos(
+        model=VEO_MODEL,
+        prompt=scene.prompt,
+        config=types.GenerateVideosConfig(
+            person_generation="dont_allow",
+            aspect_ratio="16:9",
+        ),
+    )
 
-        # Upload to GCS
-        blob_name = f"{scene.story_id}/{scene.id}.mp4"
-        bucket = GCS_CLIENT.bucket(VIDEO_BUCKET)
-        blob = bucket.blob(blob_name)
-        blob.upload_from_filename(tmp_path, content_type="video/mp4")
-        public_url = f"https://storage.googleapis.com/{VIDEO_BUCKET}/{blob_name}"
+    # 2) Poll until done
+    while not op.done:
+        time.sleep(POLL_SEC)
+        op = client.operations.get(op)
 
-        # Update DB
-        with db.session.begin():
-            scene.video_url = public_url
-            scene.status = "done"
+    # 3) Save first video
+    raw = op.response.generated_videos[0].video.read()
+    with NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(raw)
+        tmp_path = tmp.name
 
-        # Notify clients
-        socketio.emit(
-            "scene_ready",
-            {"story_id": scene.story_id, "scene_id": scene.id, "video_url": public_url},
-            to=scene.story_id,
-        )
-    except Exception as exc:  # noqa: BLE001
-        with db.session.begin():
-            scene.status = "error"
-        socketio.emit(
-            "scene_error",
-            {"story_id": scene.story_id, "scene_id": scene.id, "error": str(exc)},
-            to=scene.story_id,
-        )
-        raise
+    # 4) Upload to GCS
+    blob_name = f"{scene.story_id}/{scene.id}.mp4"
+    blob = gcs.bucket(BUCKET).blob(blob_name)
+    blob.upload_from_filename(tmp_path, content_type="video/mp4")
+    url = f"https://storage.googleapis.com/{BUCKET}/{blob_name}"
+
+    # 5) DB + live event
+    with db.session.begin():
+        scene.video_url = url
+        scene.status = "done"
+
+    socketio.emit("scene_ready",
+        {"story_id": scene.story_id, "scene_id": scene.id, "video_url": url},
+        to=scene.story_id,
+    )

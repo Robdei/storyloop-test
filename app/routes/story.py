@@ -39,28 +39,28 @@ def create_story():
     return render_template("story/create.html", form=form)
 
 
-@story_bp.route("/story/<string:story_id>", methods=["GET", "POST"])
-@login_required
-def view_story(story_id: str):
-    story: Story | None = Story.query.get_or_404(story_id)
-    scenes = story.scenes
-    form = PromptForm()
-    if form.validate_on_submit():
-            scene = Scene(prompt=form.prompt.data.strip(), story=story, author=current_user, style=None)
-            db.session.add(scene)
-            db.session.commit()
-            # ⬇️ ➋ record “last prompt” timestamp in Firestore
-            mark_prompt()
-            if form.engine.data == "hunyuan":
-                generate_scene_hunyuan.delay(scene.id)
-            else:
-                generate_scene.delay(scene.id)
-            socketio.emit("scene_queued", {"story_id": story.id, "scene_id": scene.id}, to=story.id)
-            flash("Scene queued for rendering.", "info")
-            return redirect(url_for("story.view_story", story_id=story.id))
-    return render_template(
-        "story/detail.html", story=story, scenes=scenes, form=form, current_user=current_user
-    )
+# @story_bp.route("/story/<string:story_id>", methods=["GET", "POST"])
+# @login_required
+# def view_story(story_id: str):
+#     story: Story | None = Story.query.get_or_404(story_id)
+#     scenes = story.scenes
+#     form = PromptForm()
+#     if form.validate_on_submit():
+#             scene = Scene(prompt=form.prompt.data.strip(), story=story, author=current_user, style=None)
+#             db.session.add(scene)
+#             db.session.commit()
+#             # ⬇️ ➋ record “last prompt” timestamp in Firestore
+#             mark_prompt()
+#             if form.engine.data == "hunyuan":
+#                 generate_scene_hunyuan.delay(scene.id)
+#             else:
+#                 generate_scene.delay(scene.id)
+#             socketio.emit("scene_queued", {"story_id": story.id, "scene_id": scene.id}, to=story.id)
+#             flash("Scene queued for rendering.", "info")
+#             return redirect(url_for("story.view_story", story_id=story.id))
+#     return render_template(
+#         "story/detail.html", story=story, scenes=scenes, form=form, current_user=current_user
+#     )
 
 
 # Socket.IO events

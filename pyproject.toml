@@ -22,8 +22,11 @@ redis = "^5.0.3"
 python-dotenv = "^1.0.1"
 psycopg2-binary = "^2.9"
 # Google Cloud
-google-cloud-aiplatform = {version = ">=1.55.0", extras = ["preview"]}
+google-cloud-aiplatform = "^1.103.0"
 google-cloud-storage = "^2.16.0"
+google-cloud-pubsub = "^2.19.0" 
+google-cloud-firestore = "^2.15.0"
+google-genai = "1.10.0"
 ffmpeg-python = "^0.2.0"
 eventlet = "^0.35.2"
 

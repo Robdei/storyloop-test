@@ -8,7 +8,7 @@ from ..models import Scene
 
 ENDPOINT = os.getenv("HUNYUAN_ENDPOINT")
 
-@paramcelery_app.task(name="tasks.generate_scene_hunyuan")
+@celery_app.task(name="tasks.generate_scene_hunyuan")
 def generate_scene_hunyuan(scene_id: int):
     if ENDPOINT is None:
         return
