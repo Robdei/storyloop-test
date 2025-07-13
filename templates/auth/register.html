@@ -21,13 +21,67 @@
 
       <div>
         {{ form.password.label(class="block text-sm font-medium mb-1") }}
-        {{ form.password(class="w-full rounded-md bg-white/20 focus:bg-white focus:text-gray-900 placeholder-white/70 px-3 py-2 outline-none") }}
+        {{ form.password(id="passwordField",
+                        class="w-full rounded-md bg-white/20 focus:bg-white focus:text-gray-900 placeholder-white/70 px-3 py-2 outline-none") }}
+        <p id="pwHelp" class="text-xs mt-1"></p>
+        {% for err in form.password.errors %}
+          <p class="text-xs text-red-300 mt-1">{{ err }}</p>
+        {% endfor %}
       </div>
 
       <div>
         {{ form.confirm.label(class="block text-sm font-medium mb-1") }}
-        {{ form.confirm(class="w-full rounded-md bg-white/20 focus:bg-white focus:text-gray-900 placeholder-white/70 px-3 py-2 outline-none") }}
+        {{ form.confirm(id="confirmField",
+                        class="w-full rounded-md bg-white/20 focus:bg-white focus:text-gray-900 placeholder-white/70 px-3 py-2 outline-none") }}
+        <p id="confirmHelp" class="text-xs mt-1"></p>
+        {% for err in form.confirm.errors %}
+          <p class="text-xs text-red-300 mt-1">{{ err }}</p>
+        {% endfor %}
       </div>
+
+      {% block extra_scripts %}
+      {{ super() }}
+      <script>
+        const pw       = document.getElementById('passwordField');
+        const confirm  = document.getElementById('confirmField');
+        const pwHelp   = document.getElementById('pwHelp');
+        const cHelp    = document.getElementById('confirmHelp');
+        const min      = 8;
+
+        function updatePwHint() {
+          const len = pw.value.length;
+          if (!len) {
+            pwHelp.textContent = '';
+            pwHelp.className   = 'text-xs mt-1';
+          } else if (len < min) {
+            pwHelp.textContent = `Password must be at least ${min} characters — ${min - len} to go`;
+            pwHelp.className   = 'text-xs mt-1 text-red-300';
+          } else {
+            pwHelp.textContent = '✓ Length requirement met';
+            pwHelp.className   = 'text-xs mt-1 text-green-300';
+          }
+          updateMatchHint();      // also check match whenever password changes
+        }
+
+        function updateMatchHint() {
+          if (!confirm.value) {
+            cHelp.textContent = '';
+            cHelp.className   = 'text-xs mt-1';
+            return;
+          }
+          if (pw.value === confirm.value) {
+            cHelp.textContent = '✓ Passwords match';
+            cHelp.className   = 'text-xs mt-1 text-green-300';
+          } else {
+            cHelp.textContent = '✗ Passwords do not match';
+            cHelp.className   = 'text-xs mt-1 text-red-300';
+          }
+        }
+
+        pw.addEventListener('input', updatePwHint);
+        confirm.addEventListener('input', updateMatchHint);
+      </script>
+      {% endblock %}
 
       <button type="submit"
               class="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 rounded-md font-semibold">
