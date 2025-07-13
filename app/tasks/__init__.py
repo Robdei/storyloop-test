@@ -1,1 +1,1 @@
-from . import video, hunyuan  # noqa: F401 – ensure discovery
+from . import video, hunyuan, email  # noqa: F401 – ensure discovery

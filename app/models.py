@@ -10,7 +10,7 @@ from datetime import datetime
 from typing import Optional
 
 from flask_login import UserMixin
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .extensions import db
@@ -31,6 +31,8 @@ class User(db.Model, UserMixin):  # type: ignore[misc]
     stories_created: Mapped[list["Story"]] = relationship(
         "Story", back_populates="creator", lazy="selectin"
     )
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False)
+    email_token: Mapped[str] = mapped_column(String(36), unique=True)
 
     # ── helper methods ──
     def set_password(self, password: str) -> None:

@@ -4,6 +4,7 @@ from flask_migrate import Migrate
 from flask_login import LoginManager
 from flask_wtf import CSRFProtect
 from flask_socketio import SocketIO
+from flask_mail import Mail
 import os
 
 
@@ -13,6 +14,7 @@ migrate = Migrate()
 login_manager = LoginManager()
 login_manager.login_view = "auth.login"
 csrf = CSRFProtect()
+mail = Mail()
 
 # Initialize without app, will be initialized in create_app()
 # socketio = SocketIO()

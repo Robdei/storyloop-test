@@ -2,13 +2,14 @@ services:
   web:
     build: .
     command: python run.py
+    environment:
+      - FLASK_DEBUG=0        # ← turn off reloader in Docker
+    ports:
+      - "8000:5000"          # host:container
     volumes:
       - .:/code
-      - ./gcp-creds.json:/secrets/gcp-creds.json:ro
     env_file:
       - .env
-    ports:
-      - "8000:5000"
     depends_on:
       - db
       - redis

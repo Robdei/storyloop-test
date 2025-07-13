@@ -1,9 +1,11 @@
 """Blueprint providing register/login/logout views."""
 from __future__ import annotations
 
+import uuid, datetime
 from flask import Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required, login_user, logout_user
 
+from ..tasks.email import send_welcome_email
 from ..extensions import db
 from ..forms import LoginForm, RegistrationForm
 from ..models import User
@@ -24,27 +26,57 @@ def register():  # noqa: D401
             display_name=form.display_name.data.strip(),
         )
         user.set_password(form.password.data)
+        user.email_token = str(uuid.uuid4())
+        user.token_sent_at = datetime.utcnow()
         db.session.add(user)
         db.session.commit()
-        flash("Registration successful! Please log in.", "success")
+        send_welcome_email(user)   # Celery task
+        flash("Check your inbox to confirm your email.", "info")
         return redirect(url_for("auth.login"))
+    if form.is_submitted() and not form.validate():
+        flash(
+            "Registration was unsuccessful. "
+            "Ensure passwords match and have 8 or more characters.",
+            "danger",
+        )
+
     return render_template("auth/register.html", form=form)
 
 
+@auth_bp.route("/verify/<token>")
+def verify_email(token):
+    user = User.query.filter_by(email_token=token).first_or_404()
+    if user.is_active:
+        flash("Account already verified — please log in.", "info")
+        return redirect(url_for("auth.login"))
+
+    user.is_active = True
+    user.email_token = None        # one-time use
+    db.session.commit()
+
+    flash("Email verified — you can now log in!", "success")
+    return redirect(url_for("auth.login"))
+
+
 @auth_bp.route("/login", methods=["GET", "POST"])
-def login():  # noqa: D401
+def login():
     if current_user.is_authenticated:
         return redirect(url_for("story.dashboard"))
 
     form = LoginForm()
     if form.validate_on_submit():
-        user: User | None = User.query.filter_by(email=form.email.data.lower()).first()
-        if user and user.check_password(form.password.data):
+        # ⬇️  updated lookup + active check
+        user = User.query.filter_by(email=form.email.data.lower()).first()
+
+        if user and user.is_active and user.check_password(form.password.data):
             login_user(user)
-            next_page = request.args.get("next")
-            return redirect(next_page or url_for("story.dashboard"))
-        flash("Invalid credentials", "danger")
-    return render_template("auth/login_old.html", form=form)
+            flash("Welcome back!", "success")
+            return redirect(url_for("story.dashboard"))
+        else:
+            flash("Invalid credentials or email not verified.", "danger")
+            # fall through → re-render form with flash
+
+    return render_template("auth/login.html", form=form)
 
 
 @auth_bp.route("/logout")

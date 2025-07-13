@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from flask import Flask
-
-from .extensions import db, migrate, login_manager, csrf, socketio
+from .extensions import db, migrate, login_manager, csrf, socketio, mail
 from .config import Config
 
 from .models import User  # noqa: E402
@@ -26,6 +25,7 @@ def create_app(config_class: str | type[Config] | None = Config) -> Flask:
     migrate.init_app(app, db)
     login_manager.init_app(app)
     csrf.init_app(app)
+    mail.init_app(app)
     socketio.init_app(app, cors_allowed_origins="*")  # Initialize SocketIO with the app
 
     # Blueprints
